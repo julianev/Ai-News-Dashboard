@@ -18,7 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function App() {
-  const { papers, news, videos, github, newsletters, benchmarks, digest, trends, loading, error, reload, availableDates, selectedDate, setSelectedDate } = useData();
+  const { papers, news, videos, github, newsletters, models, digest, trends, loading, error, reload, availableDates, selectedDate, setSelectedDate } = useData();
   const {
     prefs,
     toggleBookmark,
@@ -258,7 +258,7 @@ export default function App() {
                   selectedTopics={prefs.selectedTopics}
                 />
                 <BenchmarksSection
-                  benchmarks={benchmarks}
+                  models={models}
                   loading={loading}
                 />
               </div>
@@ -316,7 +316,7 @@ export default function App() {
 
             <TabsContent value="benchmarks" className="outline-none">
               <BenchmarksSection
-                benchmarks={benchmarks}
+                models={models}
                 loading={loading}
               />
             </TabsContent>

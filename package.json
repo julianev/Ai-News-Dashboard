@@ -17,9 +17,10 @@
     "fetch:youtube": "tsx scripts/fetch-youtube.ts",
     "fetch:github": "tsx scripts/fetch-github.ts",
     "fetch:newsletters": "tsx scripts/fetch-newsletters.ts",
+    "fetch:models": "tsx scripts/fetch-models.ts",
     "generate:digest": "tsx scripts/generate-digest.ts",
     "send:discord": "tsx scripts/send-discord.ts",
-    "fetch:all": "npm run fetch:papers && npm run fetch:news && npm run fetch:youtube && npm run fetch:github && npm run fetch:newsletters && npm run generate:digest"
+    "fetch:all": "npm run fetch:papers && npm run fetch:news && npm run fetch:youtube && npm run fetch:github && npm run fetch:newsletters && npm run fetch:models && npm run generate:digest"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

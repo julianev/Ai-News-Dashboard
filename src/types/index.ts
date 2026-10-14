@@ -203,17 +203,14 @@ export const ALL_TOPICS = [
 
 export type Topic = (typeof ALL_TOPICS)[number];
 
-export interface ModelBenchmark {
+export interface ModelRelease {
   id: string;
   name: string;
-  creator: string;
-  type: 'open' | 'proprietary';
-  arenaElo: number;
-  codingElo: number;
-  mmlu: number;
+  provider: string;
+  releaseDate: string;
+  contextLength: number;
   inputPrice: number;
   outputPrice: number;
-  license: string;
-  strengths: string;
-  agentSuccessRate?: number;
+  modality: string;
+  url: string;
 }

@@ -590,7 +590,7 @@ function archiveData(date: string) {
   const archiveBase = getDataPath('archive');
   const archiveDir = join(archiveBase, date);
   if (!existsSync(archiveDir)) mkdirSync(archiveDir, { recursive: true });
-  const files = ['papers.json', 'news.json', 'videos.json', 'github.json', 'newsletters.json', 'digest.json', 'trends.json', 'benchmarks.json'];
+  const files = ['papers.json', 'news.json', 'videos.json', 'github.json', 'newsletters.json', 'digest.json', 'trends.json', 'models.json'];
   for (const f of files) {
     const src = getDataPath(f);
     if (existsSync(src)) {
