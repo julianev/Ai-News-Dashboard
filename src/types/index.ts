@@ -147,8 +147,9 @@ export interface GitHubRepoConfig {
 export interface Settings {
   timeframeHours: number;
   maxItemsPerSection: number;
-  openRouterModel: string;
-  openRouterMaxTokens: number;
+  llmBaseUrl: string;
+  llmModel: string;
+  llmMaxTokens: number;
 }
 
 // ===== UI State Types =====

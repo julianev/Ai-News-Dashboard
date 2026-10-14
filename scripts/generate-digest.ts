@@ -1,5 +1,5 @@
 /**
- * Generate AI digest using OpenRouter LLM. Reads all collected data,
+ * Generate the AI digest using a configurable OpenAI-compatible LLM. Reads all collected data,
  * crawls article content for enrichment, uses a two-pass LLM approach
  * (per-article summaries → narrative synthesis), and writes digest.json and trends.json.
  */
@@ -9,7 +9,6 @@ import {
   writeJsonFile,
   getConfigPath,
   getDataPath,
-  fetchWithRetry,
   extractTerms,
 } from './utils/index.js';
 import {
@@ -21,11 +20,10 @@ import {
   computeTFIDF,
 } from './utils/tfidf.js';
 import { crawlUrls } from './utils/crawl-content.js';
-import type { Paper, NewsItem, Video, GitHubRepo, DailyDigest, TrendsData, TopicCluster, NewsletterItem } from '../src/types/index.js';
+import { resolveLlmConfig, chatCompletion, type LlmConfig } from './utils/llm.js';
+import type { Paper, NewsItem, Video, GitHubRepo, DailyDigest, TrendsData, TopicCluster, NewsletterItem, Settings } from '../src/types/index.js';
 import { mkdirSync, existsSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 interface EnrichedContext {
   articleSummaries: Array<{ id: string; title: string; source: string; summary: string }>;
@@ -292,46 +290,15 @@ function generateDynamicFallbackSummary(
   return summary;
 }
 
-/**
- * Call OpenRouter LLM with a prompt and return the text response.
- */
-async function callLLM(
-  apiKey: string,
-  model: string,
-  prompt: string,
-  maxTokens: number,
-  temperature = 0.3
-): Promise<string> {
-  const response = await fetchWithRetry(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://github.com/ai-news-dashboard',
-      'X-Title': 'AI News Dashboard',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: maxTokens,
-      temperature,
-    }),
-  });
-
-  const result = await response.json() as {
-    choices: Array<{ message: { content: string } }>;
-  };
-
-  return result.choices?.[0]?.message?.content || '';
-}
+// LLM calls go through the configurable OpenAI-compatible client in ./utils/llm.ts
+// (chatCompletion), so the provider is set by config/settings.json (llmBaseUrl) + env key.
 
 /**
  * Pass 1: Summarize individual articles that have substantial crawled content.
  * Runs in parallel batches for efficiency.
  */
 async function summarizeArticles(
-  apiKey: string,
-  model: string,
+  llm: LlmConfig,
   items: Array<{ id: string; title: string; source: string; content: string }>
 ): Promise<Array<{ id: string; title: string; source: string; summary: string }>> {
   if (items.length === 0) return [];
@@ -358,7 +325,7 @@ ${item.content.substring(0, 1500)}
 `).join('\n')}`;
 
     try {
-      const response = await callLLM(apiKey, model, batchPrompt, 1024, 0.2);
+      const response = await chatCompletion(llm, [{ role: 'user', content: batchPrompt }], { maxTokens: 1024, temperature: 0.2 });
       const jsonMatch = response.match(/\[\s*\{[\s\S]*\}\s*\]/);
       if (jsonMatch) {
         const summaries = JSON.parse(jsonMatch[0]) as Array<{ id: string; summary: string }>;
@@ -384,9 +351,7 @@ ${item.content.substring(0, 1500)}
 }
 
 export async function generateDigest(): Promise<{ digest: DailyDigest; trends: TrendsData }> {
-  const settings = readJsonFile<{ openRouterModel: string; openRouterMaxTokens: number }>(
-    getConfigPath('settings.json')
-  );
+  const settings = readJsonFile<Settings>(getConfigPath('settings.json'));
 
   const papers = readJsonFile<Paper[]>(getDataPath('papers.json'));
   const news = readJsonFile<NewsItem[]>(getDataPath('news.json'));
@@ -431,8 +396,7 @@ export async function generateDigest(): Promise<{ digest: DailyDigest; trends: T
 
   let parsed;
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) throw new Error('OPENROUTER_API_KEY not set');
+    const llm = resolveLlmConfig(settings, process.env);
 
     // --- Step 1: Crawl article URLs for richer context ---
     console.log('\n🌐 Crawling article content for enrichment...');
@@ -488,17 +452,15 @@ export async function generateDigest(): Promise<{ digest: DailyDigest; trends: T
     }
 
     // --- Step 3 (Pass 1): Per-article LLM summarization ---
-    const articleSummaries = await summarizeArticles(
-      apiKey, settings.openRouterModel, itemsToSummarize
-    );
+    const articleSummaries = await summarizeArticles(llm, itemsToSummarize);
 
     const enriched: EnrichedContext = { articleSummaries, crawledContent };
 
     // --- Step 4 (Pass 2): Final synthesis prompt ---
     const prompt = buildPrompt(papers, news, videos, repos, newsletters, enriched);
-    console.log(`\n🤖 Pass 2: Generating narrative synopsis (${settings.openRouterModel})...`);
+    console.log(`\n🤖 Pass 2: Generating narrative synopsis (${llm.model})...`);
 
-    const content = await callLLM(apiKey, settings.openRouterModel, prompt, settings.openRouterMaxTokens, 0.4);
+    const content = await chatCompletion(llm, [{ role: 'user', content: prompt }], { temperature: 0.4 });
     console.log(`  ✓ Response received (${content.length} chars)`);
 
     const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
@@ -569,7 +531,7 @@ export async function generateDigest(): Promise<{ digest: DailyDigest; trends: T
   const digest: DailyDigest = {
     date: today!,
     generatedAt: new Date().toISOString(),
-    model: parsed.topDevelopments.length > 0 && !parsed.topDevelopments[0].summary.includes('fallback') ? settings.openRouterModel : 'local-fallback',
+    model: parsed.topDevelopments.length > 0 && !parsed.topDevelopments[0].summary.includes('fallback') ? settings.llmModel : 'local-fallback',
     summary: parsed.summary,
     topDevelopments: parsed.topDevelopments || [],
     recommendedReadingOrder: parsed.recommendedReadingOrder || [],

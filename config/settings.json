@@ -1,6 +1,7 @@
 {
   "timeframeHours": 48,
   "maxItemsPerSection": 50,
-  "openRouterModel": "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "openRouterMaxTokens": 6144
+  "llmBaseUrl": "https://openrouter.ai/api/v1",
+  "llmModel": "nvidia/nemotron-3-ultra-550b-a55b:free",
+  "llmMaxTokens": 6144
 }
