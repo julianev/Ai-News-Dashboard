@@ -12,6 +12,7 @@ import {
   isWithinTimeframe,
   deduplicateByField,
   autoTag,
+  googleNewsUrl,
 } from './utils/index.js';
 import type { NewsItem, CompanyConfig } from '../src/types/index.js';
 
@@ -36,15 +37,30 @@ function classifyNewsType(
 }
 
 async function fetchCompanyNews(company: CompanyConfig, timeframeHours: number): Promise<NewsItem[]> {
-  if (!company.blogRssUrl) {
-    console.log(`  ⏭ Skipping ${company.name} (no RSS URL)`);
+  // Prefer the company's own RSS; otherwise fall back to a keyless Google News
+  // site-search so companies without a feed (e.g. xAI, DeepSeek) are still tracked.
+  let feedUrl: string;
+  let viaGoogleNews = false;
+  if (company.blogRssUrl) {
+    feedUrl = company.blogRssUrl;
+  } else if (company.researchUrl) {
+    try {
+      const domain = new URL(company.researchUrl).hostname.replace(/^www\./, '');
+      feedUrl = googleNewsUrl(domain, company.newsQuery ?? []);
+      viaGoogleNews = true;
+    } catch {
+      console.log(`  ⏭ Skipping ${company.name} (no RSS, unparseable researchUrl)`);
+      return [];
+    }
+  } else {
+    console.log(`  ⏭ Skipping ${company.name} (no RSS or site URL)`);
     return [];
   }
 
-  console.log(`  📰 Fetching ${company.name}...`);
+  console.log(`  📰 Fetching ${company.name}${viaGoogleNews ? ' (via Google News)' : ''}...`);
 
   try {
-    const feed = await parser.parseURL(company.blogRssUrl);
+    const feed = await parser.parseURL(feedUrl);
     const items: NewsItem[] = [];
 
     for (const entry of feed.items || []) {

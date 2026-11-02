@@ -156,3 +156,12 @@ export async function fetchWithRetry(
   }
   throw new Error(`Failed to fetch ${url} after ${retries} retries`);
 }
+
+/**
+ * Build a Google News RSS search feed for a site — a keyless fallback for sources
+ * that don't publish their own RSS. Returns an RSS URL any rss-parser can read.
+ */
+export function googleNewsUrl(domain: string, terms: string[] = []): string {
+  const q = `site:${domain} ${terms.length ? terms.join(' OR ') : ''}`.trim();
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+}

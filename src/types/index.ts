@@ -134,6 +134,8 @@ export interface CompanyConfig {
   slug: string;
   blogRssUrl?: string;
   researchUrl?: string;
+  /** Optional keyword terms to narrow the Google News fallback (used when blogRssUrl is absent). */
+  newsQuery?: string[];
   color: string;
   icon?: string;
 }
