@@ -116,6 +116,8 @@ export interface SourceConfig {
   arxiv: {
     categories: string[];
     maxResults: number;
+    /** Optional topic phrases to search arXiv for (in addition to the category feeds). Empty = disabled. */
+    keywordQueries?: string[];
   };
   huggingface: {
     enabled: boolean;

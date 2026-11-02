@@ -17,6 +17,8 @@ import type { Paper, SourceConfig } from '../src/types/index.js';
 
 const ARXIV_RSS_BASE = 'https://rss.arxiv.org/atom/';
 const HF_DAILY_PAPERS = 'https://huggingface.co/api/daily_papers';
+const ARXIV_API = 'http://export.arxiv.org/api/query';
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface ArxivEntry {
   id: string;
@@ -138,6 +140,61 @@ async function fetchHuggingFacePapers(maxPapers: number): Promise<Paper[]> {
   }
 }
 
+/**
+ * Optional keyword search via the arXiv query API — lets you track specific topics
+ * (e.g. "mixture of experts") instead of only whole-category dumps. Configure in
+ * config/sources.json under arxiv.keywordQueries; leave empty to disable.
+ */
+async function fetchArxivKeywordPapers(queries: string[], categories: string[], maxPerQuery: number): Promise<Paper[]> {
+  if (!queries.length) return [];
+  console.log(`🔎 Fetching ${queries.length} arXiv keyword search(es)...`);
+  // Spaces (not '+') so encodeURIComponent yields %20, which the arXiv API parses as the operator separator.
+  const cat = categories.map((c) => `cat:${c}`).join(' OR ');
+  const catClause = cat ? ` AND (${cat})` : '';
+  const papers: Paper[] = [];
+  for (const q of queries) {
+    const search = `all:"${q}"${catClause}`;
+    const url = `${ARXIV_API}?search_query=${encodeURIComponent(search)}&sortBy=submittedDate&sortOrder=descending&max_results=${maxPerQuery}`;
+    try {
+      const xml = await (await fetchWithRetry(url)).text();
+      const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+      let match;
+      while ((match = entryRegex.exec(xml)) !== null) {
+        const entry = match[1];
+        const title = extractTag(entry, 'title')?.replace(/\n/g, ' ').trim() || '';
+        const summary = extractTag(entry, 'summary')?.replace(/\n/g, ' ').trim() || '';
+        const published = extractTag(entry, 'published') || extractTag(entry, 'updated') || '';
+        const id = extractTag(entry, 'id') || '';
+        const authors: string[] = [];
+        const authorRegex = /<author>\s*<name>(.*?)<\/name>/g;
+        let am;
+        while ((am = authorRegex.exec(entry)) !== null) authors.push(am[1].trim());
+        const linkMatch = entry.match(/href="(https?:\/\/arxiv\.org\/abs\/[^"]+)"/);
+        const link = linkMatch ? linkMatch[1] : id;
+        if (title) {
+          papers.push({
+            id: generateId(link || title),
+            title,
+            authors,
+            date: published,
+            source: 'arxiv',
+            url: link,
+            abstract: summary.substring(0, 500),
+            tags: autoTag(`${title} ${summary}`),
+            importance: 5,
+            novelty: 5,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn(`  ⚠ keyword query failed ("${q}"):`, (error as Error).message);
+    }
+    await delay(3000); // arXiv asks ~3s between API calls
+  }
+  console.log(`  ✓ Found ${papers.length} keyword-matched papers`);
+  return papers;
+}
+
 function extractTag(xml: string, tag: string): string | null {
   const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i');
   const match = xml.match(regex);
@@ -148,14 +205,15 @@ export async function fetchPapers(): Promise<Paper[]> {
   const config = readJsonFile<SourceConfig>(getConfigPath('sources.json'));
   const settings = readJsonFile<{ timeframeHours: number }>(getConfigPath('settings.json'));
 
-  const [arxivPapers, hfPapers] = await Promise.all([
+  const [arxivPapers, hfPapers, keywordPapers] = await Promise.all([
     fetchArxivPapers(config.arxiv.categories, config.arxiv.maxResults),
     config.huggingface.enabled
       ? fetchHuggingFacePapers(config.huggingface.maxPapers)
       : Promise.resolve([]),
+    fetchArxivKeywordPapers(config.arxiv.keywordQueries ?? [], config.arxiv.categories, config.arxiv.maxResults),
   ]);
 
-  let allPapers = [...arxivPapers, ...hfPapers];
+  let allPapers = [...arxivPapers, ...hfPapers, ...keywordPapers];
 
   // Deduplicate by title similarity (normalize whitespace)
   allPapers = deduplicateByField(

@@ -1,7 +1,13 @@
 {
   "arxiv": {
     "categories": ["cs.AI", "cs.LG", "cs.CL", "cs.CV"],
-    "maxResults": 50
+    "maxResults": 50,
+    "keywordQueries": [
+      "large language model agents",
+      "retrieval augmented generation",
+      "mixture of experts",
+      "reinforcement learning from human feedback"
+    ]
   },
   "huggingface": {
     "enabled": true,
