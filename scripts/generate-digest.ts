@@ -42,33 +42,33 @@ function buildPrompt(
   const paperSummary = papers.slice(0, 20).map((p, i) => {
     const enrichedSummary = enriched?.articleSummaries.find(s => s.id === p.id)?.summary;
     const abstract = enrichedSummary || (p.abstract ? p.abstract.substring(0, 200) : '');
-    return `${i + 1}. [ID: ${p.id}] "${p.title}" [${p.source}] tags: ${p.tags.join(', ')}\n   Context: ${abstract}`;
+    return `${i + 1}. [ID: ${p.id}] "${p.title}" [${p.source}] URL: ${p.url} tags: ${p.tags.join(', ')}\n   Context: ${abstract}`;
   }).join('\n');
 
   const newsSummary = news.slice(0, 15).map((n, i) => {
     const enrichedSummary = enriched?.articleSummaries.find(s => s.id === n.id)?.summary;
     const desc = enrichedSummary || n.summary || '';
-    return `${i + 1}. [ID: ${n.id}] "${n.title}" by ${n.company} [${n.type}] tags: ${n.tags.join(', ')}\n   Context: ${desc}`;
+    return `${i + 1}. [ID: ${n.id}] "${n.title}" by ${n.company} [${n.type}] URL: ${n.url} tags: ${n.tags.join(', ')}\n   Context: ${desc}`;
   }).join('\n');
 
   const videoSummary = videos.slice(0, 10).map((v, i) =>
-    `${i + 1}. [ID: ${v.id}] "${v.title}" by ${v.channel} (${v.duration}, ${v.viewCount?.toLocaleString() || '?'} views) tags: ${v.tags.join(', ')}\n   Description: ${v.description.substring(0, 150)}`
+    `${i + 1}. [ID: ${v.id}] "${v.title}" by ${v.channel} (${v.duration}, ${v.viewCount?.toLocaleString() || '?'} views) URL: ${v.url} tags: ${v.tags.join(', ')}\n   Description: ${v.description.substring(0, 150)}`
   ).join('\n');
 
   const repoSummary = repos.slice(0, 8).map((r, i) =>
-    `${i + 1}. [ID: ${r.id}] ${r.fullName} (⭐${r.stars}) - ${r.latestRelease?.tag || 'no release'}\n   Description: ${r.description?.substring(0, 150) || 'N/A'}`
+    `${i + 1}. [ID: ${r.id}] ${r.fullName} (⭐${r.stars}) - ${r.latestRelease?.tag || 'no release'} URL: ${r.url}\n   Description: ${r.description?.substring(0, 150) || 'N/A'}`
   ).join('\n');
 
   const newsletterSummary = newsletters.slice(0, 10).map((nl, i) => {
     const enrichedSummary = enriched?.articleSummaries.find(s => s.id === nl.id)?.summary;
     const content = enrichedSummary || nl.summary || '';
-    return `${i + 1}. [ID: ${nl.id}] "${nl.title}" by ${nl.source} (Quality: ${nl.quality}/5) tags: ${nl.tags.join(', ')}\n   Key points: ${content}`;
+    return `${i + 1}. [ID: ${nl.id}] "${nl.title}" by ${nl.source} (Quality: ${nl.quality}/5) URL: ${nl.url} tags: ${nl.tags.join(', ')}\n   Key points: ${content}`;
   }).join('\n');
 
   return `You are a senior AI industry analyst writing a daily intelligence brief for technical leaders and researchers. Analyze the following AI developments from the last 24-48 hours.
 
 Your job is twofold:
-1. Write a NARRATIVE EXECUTIVE SUMMARY — a flowing, insightful synopsis that connects the dots between today's developments, identifies cross-cutting themes, and explains what they mean for the field. This should read like an analyst report, NOT a bullet-point listing of articles. Think Bloomberg Intelligence or McKinsey Technology Report style.
+1. Write a NARRATIVE EXECUTIVE SUMMARY — a flowing synopsis that connects the dots between today's developments, identifies cross-cutting themes, and explains what they mean for the field. Read like an analyst report, NOT a bullet-point listing of articles. Use clear, plain language (prefer "X did Y, which means Z" over abstract jargon). Whenever a sentence draws on a specific item, END it with a Markdown link to that item's source — [short label](url) — using the item's exact URL from the data above.
 2. Identify and rank the 3-5 most significant individual developments.
 
 Prioritization criteria:
@@ -119,7 +119,8 @@ Critical rules:
 - The "summary" MUST be a narrative synopsis, NOT a structured listing. No bullet points, no numbered lists, no section headers. Write flowing prose.
 - Include 3-5 top developments with substantive, specific summaries (not generic filler).
 - estimatedReadingTime is in minutes.
-- In "relatedItemIds", use the exact string IDs from the source lists above.`;
+- In "relatedItemIds", use the exact string IDs from the source lists above.
+- End source-backed sentences (in "summary" and in each development's "summary") with a [label](url) Markdown link, using the exact URLs from the data above.`;
 }
 
 function generateTopicClusters(

@@ -77,7 +77,7 @@ export function DailyBrief({
     });
   };
 
-  const renderInlineMarkdown = (text: string) => {
+  const renderBoldItalic = (text: string) => {
     const boldParts = text.split(/\*\*([\s\S]*?)\*\*/g);
     return boldParts.map((part, j) => {
       if (j % 2 === 1) {
@@ -88,6 +88,29 @@ export function DailyBrief({
         );
       }
       return renderItalics(part);
+    });
+  };
+
+  // Render inline Markdown links [label](url) as clickable source pointers,
+  // falling back to bold/italic for everything else.
+  const renderInlineMarkdown = (text: string) => {
+    const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g);
+    return parts.map((part, i) => {
+      const m = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (m) {
+        return (
+          <a
+            key={i}
+            href={m[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-primary underline underline-offset-2 hover:no-underline"
+          >
+            {m[1]}
+          </a>
+        );
+      }
+      return <span key={i}>{renderBoldItalic(part)}</span>;
     });
   };
 
@@ -226,7 +249,7 @@ export function DailyBrief({
                   <CardTitle className="mt-2 text-base leading-snug font-bold group-hover:text-primary transition-colors">{dev.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
-                  <p className="text-muted-foreground leading-relaxed">{dev.summary}</p>
+                  <p className="text-muted-foreground leading-relaxed">{renderInlineMarkdown(dev.summary)}</p>
                   <div className="space-y-2 border-t pt-3 mt-1 border-muted/50">
                     <div className="flex items-start gap-2">
                       <TrendingUp className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
